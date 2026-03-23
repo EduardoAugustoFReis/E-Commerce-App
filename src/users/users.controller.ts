@@ -7,10 +7,13 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
 @Controller('users')
 export class UsersController {
@@ -35,17 +38,20 @@ export class UsersController {
   }
 
   // DELETE
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  deleteUser(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.deleteUser(id);
+  deleteUser(@Param('id', ParseIntPipe) id: number, @Req() req) {
+    return this.usersService.deleteUser(id, req.user.userId);
   }
 
   // UPDATE
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   updateUser(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,
+    @Req() req,
   ) {
-    return this.usersService.updateUser(id, updateUserDto);
+    return this.usersService.updateUser(id, updateUserDto, req.user.userId);
   }
 }

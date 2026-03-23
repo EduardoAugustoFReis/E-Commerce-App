@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { HashingService } from 'src/common/hashing.service';
@@ -59,9 +63,9 @@ export class UsersService {
     return user;
   };
 
-  deleteUser = async (userId: number) => {
+  deleteUser = async (id: number, userId: number) => {
     const user = await this.prismaService.user.findUnique({
-      where: { id: userId },
+      where: { id },
       select: {
         id: true,
         email: true,
@@ -75,6 +79,10 @@ export class UsersService {
       return new NotFoundException('Usuário não encontrado');
     }
 
+    if (user.id !== userId) {
+      return new UnauthorizedException('Acesso negado.');
+    }
+
     await this.prismaService.user.delete({
       where: { id: user.id },
     });
@@ -82,9 +90,13 @@ export class UsersService {
     return { message: 'Usuário deletado' };
   };
 
-  updateUser = async (userId: number, updateUserDto: UpdateUserDto) => {
+  updateUser = async (
+    id: number,
+    updateUserDto: UpdateUserDto,
+    userId: number,
+  ) => {
     const user = await this.prismaService.user.findUnique({
-      where: { id: userId },
+      where: { id },
     });
 
     if (!user) {

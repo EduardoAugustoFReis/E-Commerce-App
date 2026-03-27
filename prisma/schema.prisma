@@ -65,6 +65,8 @@ model Order {
   createdAt DateTime @default(now())
 
   item OrderItem[]
+  
+  total     Float    @default(0)
 }
 
 model OrderItem {

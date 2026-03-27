@@ -25,6 +25,7 @@ export class ProductsService {
   ) {
     const imageUrl = `/uploads/${file.filename}`;
 
+
     return this.prismaService.product.create({
       data: {
         ...createProductDto,

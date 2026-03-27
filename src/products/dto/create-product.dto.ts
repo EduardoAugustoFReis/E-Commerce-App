@@ -19,6 +19,8 @@ export class CreateProductDto {
   price: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
+  @IsPositive()
   categoryId?: number;
 }

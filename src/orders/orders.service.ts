@@ -54,7 +54,21 @@ export class OrdersService {
       select: {
         id: true,
         status: true,
-        item: true,
+        item: {
+          select: {
+            id: true,
+            quantity: true,
+            price: true,
+            product: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
         user: {
           select: {
             id: true,

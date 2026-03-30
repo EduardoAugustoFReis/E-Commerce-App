@@ -44,12 +44,8 @@ export class OrdersController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Patch(':id/status')
-  updateStatus(
-    @Param('id', ParseIntPipe) id: number,
-    @Req() req,
-    @Body('status') status: 'Pending' | 'Paid' | 'Cancelled',
-  ) {
-    return this.ordersService.updateStatus(id, req.user.userId, status);
+  @Patch(':id/checkout')
+  checkout(@Param('id', ParseIntPipe) id: number, @Req() req) {
+    return this.ordersService.checkout(id, req.user.userId);
   }
 }

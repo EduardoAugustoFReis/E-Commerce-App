@@ -1,6 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateOrderItemDto } from './dto/create-orderItem.dto';
+import { UpdateOrderItemDto } from './dto/update-orderItem.dto';
 
 @Injectable()
 export class OrderItemsService {
@@ -19,6 +25,10 @@ export class OrderItemsService {
 
     if (!order) {
       throw new NotFoundException('Pedido não encontrado');
+    }
+
+    if (order.status !== 'Pending') {
+      throw new BadRequestException('Pedido já finalizado');
     }
 
     const productsId = items.map((item) => item.productId);
@@ -49,7 +59,7 @@ export class OrderItemsService {
         orderId,
         productId: item.productId,
         quantity: item.quantity,
-        price: product.price, // ✅ agora é number
+        price: product.price,
       };
     });
 
@@ -98,5 +108,148 @@ export class OrderItemsService {
     return updatedOrder;
   };
 
-  listOrderItemById = async () => {};
+  listAllOrdersItems = async (userId: number) => {
+    return this.prismaService.orderItem.findMany({
+      where: {
+        order: {
+          userId,
+        },
+      },
+      select: {
+        id: true,
+        price: true,
+        quantity: true,
+        product: true,
+      },
+    });
+  };
+
+  listOrderItemById = async (orderItemId: number, userId: number) => {
+    const orderItem = await this.prismaService.orderItem.findUnique({
+      where: { id: orderItemId },
+      include: {
+        order: true,
+        product: true,
+      },
+    });
+
+    if (!orderItem) {
+      throw new NotFoundException('Lista de items não encontrada');
+    }
+
+    if (orderItem.order.userId !== userId) {
+      throw new UnauthorizedException('Acesso negado');
+    }
+
+    return {
+      id: orderItem.id,
+      price: orderItem.price,
+      quantity: orderItem.quantity,
+      product: orderItem.product,
+    };
+  };
+
+  deleteOrderItem = async (orderItemId: number, userId: number) => {
+    const orderItem = await this.prismaService.orderItem.findUnique({
+      where: { id: orderItemId },
+      include: {
+        order: true,
+      },
+    });
+
+    if (!orderItem) {
+      throw new NotFoundException('Item não encontrado');
+    }
+
+    if (orderItem.order.userId !== userId) {
+      throw new UnauthorizedException('Acesso negado.');
+    }
+
+    if (orderItem.order.status !== 'Pending') {
+      throw new BadRequestException('Pedido já finalizado');
+    }
+
+    // calcular quanto vai diminuir do total
+    const totalToRemoved = orderItem.price * orderItem.quantity;
+
+    await this.prismaService.$transaction([
+      this.prismaService.orderItem.delete({
+        where: { id: orderItemId },
+      }),
+      this.prismaService.order.update({
+        where: { id: orderItemId },
+        data: {
+          total: totalToRemoved,
+        },
+      }),
+    ]);
+
+    return { message: 'Item removido com sucesso' };
+  };
+
+  updateOrderItem = async (
+    orderItemId: number,
+    updateOrderItemDto: UpdateOrderItemDto,
+    userId: number,
+  ) => {
+    const orderItem = await this.prismaService.orderItem.findUnique({
+      where: { id: orderItemId },
+      include: { order: true },
+    });
+
+    if (!orderItem) {
+      throw new NotFoundException('Item não encontrado');
+    }
+
+    if (orderItem.order.userId !== userId) {
+      throw new UnauthorizedException('Acesso negado');
+    }
+
+    if (orderItem.order.status !== 'Pending') {
+      throw new BadRequestException('Pedido já finalizado');
+    }
+
+    const oldTotal = orderItem.price * orderItem.quantity;
+    const newTotal = orderItem.price * updateOrderItemDto.quantity;
+    const diffTotal = newTotal - oldTotal;
+
+    await this.prismaService.$transaction([
+      this.prismaService.orderItem.update({
+        where: { id: orderItemId },
+        data: {
+          quantity: updateOrderItemDto.quantity,
+        },
+      }),
+      this.prismaService.order.update({
+        where: { id: orderItem.orderId },
+        data: {
+          total: { increment: diffTotal },
+        },
+      }),
+    ]);
+
+    return this.prismaService.order.findUnique({
+      where: { id: orderItem.orderId },
+      select: {
+        id: true,
+        status: true,
+        total: true,
+        item: {
+          select: {
+            id: true,
+            quantity: true,
+            price: true,
+            product: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  };
 }

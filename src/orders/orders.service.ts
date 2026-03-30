@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -100,30 +101,57 @@ export class OrdersService {
     return { message: 'Pedido deletado' };
   };
 
-  updateStatus = async (
-    orderId: number,
-    userId: number,
-    status: 'Pending' | 'Paid' | 'Cancelled',
-  ) => {
+  checkout = async (orderId: number, userId: number) => {
     const order = await this.prismaService.order.findUnique({
       where: { id: orderId },
+      include: {
+        item: true,
+      },
     });
 
     if (!order) {
-      throw new NotFoundException('Pedido não encontrado.');
+      throw new NotFoundException('Pedido não encontrado');
     }
 
     if (order.userId !== userId) {
-      throw new UnauthorizedException('Acesso negado.');
+      throw new UnauthorizedException('Acesso negado');
     }
 
-    return await this.prismaService.order.update({
+    if (order.item.length === 0) {
+      throw new BadRequestException('Pedido não possui itens');
+    }
+
+    if (order.status !== 'Pending') {
+      throw new BadRequestException('Pedido já finalizado');
+    }
+
+    const updatedOrder = this.prismaService.order.update({
       where: { id: orderId },
-      data: { status },
+      data: {
+        status: 'Paid',
+      },
       select: {
         id: true,
         status: true,
+        total: true,
+        item: {
+          select: {
+            id: true,
+            quantity: true,
+            price: true,
+            product: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
       },
     });
+
+    return updatedOrder;
   };
 }

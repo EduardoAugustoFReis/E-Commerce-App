@@ -26,9 +26,10 @@ enum UserRole {
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
-  password  String
+  password  String?
   name      String
   role      UserRole @default(Client)
+  provider  String? // novo
   createdAt DateTime @default(now())
 
   orders Order[]
@@ -65,8 +66,8 @@ model Order {
   createdAt DateTime @default(now())
 
   item OrderItem[]
-  
-  total     Float    @default(0)
+
+  total Float @default(0)
 }
 
 model OrderItem {

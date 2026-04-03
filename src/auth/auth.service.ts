@@ -22,6 +22,10 @@ export class AuthService {
 
     if (!user) throw new UnauthorizedException('Credenciais inválidas');
 
+    if (!user.password) {
+      throw new UnauthorizedException('Use login com Google');
+    }
+
     const passwordCheck = await this.hashingService.compare(
       loginDto.password,
       user.password,
@@ -59,5 +63,35 @@ export class AuthService {
     });
 
     return user;
+  };
+
+  loginWithGoogle = async (userData: { email: string; name: string }) => {
+    let user = await this.prismaService.user.findFirst({
+      where: { email: userData.email },
+    });
+
+    if (!user) {
+      user = await this.prismaService.user.create({
+        data: {
+          email: userData.email,
+          name: userData.name,
+          password: null,
+          provider: 'google',
+        },
+      });
+    }
+
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
+
+    const token = await this.jwtService.signAsync(payload);
+
+    return {
+      user,
+      token,
+    };
   };
 }
